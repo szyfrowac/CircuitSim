@@ -19,6 +19,7 @@ public class CircuitPanel extends JPanel {
 
     private String     selectedTool  = null;
     private GateVisual selectedGate  = null;
+    private Wire       selectedWire  = null;
     private GateVisual draggingGate  = null;
     private int        dragOffX, dragOffY;
 
@@ -46,6 +47,7 @@ public class CircuitPanel extends JPanel {
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE)  {
                     selectedTool = null;
                     selectedGate = null;
+                    selectedWire = null;
                     pendingGateMouse = null;
                     cancelPendingWire();
                     repaint();
@@ -66,7 +68,12 @@ public class CircuitPanel extends JPanel {
                         return;
                     }
                     Wire hit = wireAt(e.getPoint());
-                    if (hit != null) { wires.remove(hit); runSimulation(); repaint(); }
+                    if (hit != null) {
+                        wires.remove(hit);
+                        if (selectedWire == hit) selectedWire = null;
+                        runSimulation();
+                        repaint();
+                    }
                     return;
                 }
 
@@ -111,6 +118,7 @@ public class CircuitPanel extends JPanel {
                     selectedTool = null;
                     draggingGate = null;
                     selectedGate = null;
+                    selectedWire = null;
                     statusPanel.setStatusOk("Wire started from node " + clickedPort + ". Click a port or wire to connect.");
                     repaint();
                     return;
@@ -125,6 +133,7 @@ public class CircuitPanel extends JPanel {
                     selectedTool = null;
                     pendingGateMouse = null;
                     selectedGate = gv;
+                    selectedWire = null;
                     runSimulation();
                     repaint();
                     statusPanel.setStatusOk("Placed " + gv.getType()
@@ -145,6 +154,7 @@ public class CircuitPanel extends JPanel {
                         return;
                     }
                     selectedGate = g;
+                    selectedWire = null;
                     draggingGate = g;
                     dragOffX = e.getX() - g.getX();
                     dragOffY = e.getY() - g.getY();
@@ -152,7 +162,16 @@ public class CircuitPanel extends JPanel {
                     return;
                 }
 
+                Wire hitWire = wireAt(e.getPoint());
+                if (hitWire != null) {
+                    selectedGate = null;
+                    selectedWire = hitWire;
+                    repaint();
+                    return;
+                }
+
                 selectedGate = null;
+                selectedWire = null;
                 repaint();
             }
             @Override public void mouseReleased(MouseEvent e) { draggingGate = null; }
@@ -203,6 +222,7 @@ public class CircuitPanel extends JPanel {
     public void setSelectedTool(String tool) {
         selectedTool = tool;
         selectedGate = null;
+        selectedWire = null;
         pendingGateMouse = getMousePosition();
         statusPanel.setStatusOk("Click canvas to place " + tool);
         repaint();
@@ -266,16 +286,27 @@ public class CircuitPanel extends JPanel {
     }
 
     public void deleteSelected() {
-        if (selectedGate == null) return;
-        int out = selectedGate.getOutputNodeId();
-        List<Integer> ins = selectedGate.getInputNodeIds();
-        wires.removeIf(w -> w.getFromNode() == out || w.getToNode() == out
-                         || ins.contains(w.getFromNode()) || ins.contains(w.getToNode()));
-        gates.remove(selectedGate);
-        selectedGate = null;
-        runSimulation();
-        repaint();
-        statusPanel.setStatusOk("Component deleted.");
+        if (selectedGate != null) {
+            int out = selectedGate.getOutputNodeId();
+            List<Integer> ins = selectedGate.getInputNodeIds();
+            wires.removeIf(w -> w.getFromNode() == out || w.getToNode() == out
+                             || ins.contains(w.getFromNode()) || ins.contains(w.getToNode()));
+            gates.remove(selectedGate);
+            selectedGate = null;
+            selectedWire = null;
+            runSimulation();
+            repaint();
+            statusPanel.setStatusOk("Component deleted.");
+            return;
+        }
+
+        if (selectedWire != null) {
+            wires.remove(selectedWire);
+            selectedWire = null;
+            runSimulation();
+            repaint();
+            statusPanel.setStatusOk("Wire deleted.");
+        }
     }
 
     public void clearCanvas() {
@@ -285,6 +316,7 @@ public class CircuitPanel extends JPanel {
         manualSignals.clear();
         lastSimResult.clear();
         selectedGate = null;
+        selectedWire = null;
         cancelPendingWire();
         GateVisual.resetNodeCounter();
         GateVisual.resetComponentCounter();
@@ -401,10 +433,12 @@ public class CircuitPanel extends JPanel {
         Integer sig = lastSimResult.get(wire.getFromNode());
         if (sig == null) sig = lastSimResult.get(wire.getToNode());
         boolean high = (sig != null && sig == 1);
-        Color wireColor = high ? new Color(0, 210, 90) : new Color(90, 90, 120);
+        boolean sel = (wire == selectedWire);
+        Color wireColor = sel ? new Color(80, 190, 255)
+            : (high ? new Color(0, 210, 90) : new Color(90, 90, 120));
 
         g2.setColor(wireColor);
-        g2.setStroke(new BasicStroke(UiScale.scale(2f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setStroke(new BasicStroke(UiScale.scale(sel ? 3f : 2f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
         // Orthogonal routing: horizontal then vertical then horizontal
         int midX = (p1.x + p2.x) / 2;
