@@ -7,3 +7,4 @@ deb-build/digital-circuit-simulator_0.1.0_all/DEBIAN/control
 deb-build/digital-circuit-simulator_0.1.0_all/opt/digital-circuit-simulator/circuitsim.jar
 deb-build/digital-circuit-simulator_0.1.0_all/usr/bin/circuitsim
 deb-build/digital-circuit-simulator_0.1.0_all/usr/share/applications/circuitsim.desktop
+CircuitSim.deb
