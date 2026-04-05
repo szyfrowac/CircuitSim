@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Digital Circuit Simulator
+Comment=Interactive digital logic circuit simulator
+Exec=circuitsim
+Terminal=false
+Categories=Education;Science;

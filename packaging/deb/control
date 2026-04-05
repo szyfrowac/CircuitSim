@@ -1,0 +1,11 @@
+Package: @PACKAGE_NAME@
+Version: @VERSION@
+Section: science
+Priority: optional
+Architecture: @ARCH@
+Depends: default-jre | java11-runtime
+Maintainer: CircuitSim Maintainers <noreply@example.com>
+Description: @APP_NAME@
+ A Java Swing-based digital combinational logic simulator.
+ It supports interactive wiring, live simulation, XML save/load,
+ and truth-table generation.

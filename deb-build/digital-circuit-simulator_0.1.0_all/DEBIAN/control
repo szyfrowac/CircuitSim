@@ -1,0 +1,11 @@
+Package: digital-circuit-simulator
+Version: 0.1.0
+Section: science
+Priority: optional
+Architecture: all
+Depends: default-jre | java11-runtime
+Maintainer: CircuitSim Maintainers <noreply@example.com>
+Description: Digital Circuit Simulator
+ A Java Swing-based digital combinational logic simulator.
+ It supports interactive wiring, live simulation, XML save/load,
+ and truth-table generation.

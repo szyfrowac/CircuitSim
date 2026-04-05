@@ -33,6 +33,23 @@ build_and_run.bat
 
 or double-click `build_and_run.bat`.
 
+## Build a Debian Package
+
+On Linux, create a `.deb` file with:
+
+```bash
+chmod +x package_deb.sh
+./package_deb.sh
+```
+
+You can pass a version number if you want a different package release:
+
+```bash
+./package_deb.sh 1.0.0
+```
+
+The script writes `digital-circuit-simulator_<version>_all.deb` in the project root.
+
 ## Manual Build and Run
 
 From the project root:
