@@ -14,12 +14,13 @@ public class MainFrame extends JFrame {
     private final StatusPanel  statusPanel;
 
     public MainFrame() {
-        applyDarkDefaults();
         try { UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel"); } catch (Exception ignored) {}
+        applyDarkDefaults();
+        scaleUiDefaults();
 
         setTitle("Digital Circuit Simulator");
-        setSize(1100, 730);
-        setMinimumSize(new Dimension(900, 600));
+        setSize(UiScale.dimension(1100, 730));
+        setMinimumSize(UiScale.dimension(900, 600));
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -85,7 +86,7 @@ public class MainFrame extends JFrame {
 
     // ── Bottom toolbar (matches prototype: Verify | Truth Table | Delete | Remove Wire) ──
     private JPanel buildBottomToolbar() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 6));
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.CENTER, UiScale.scale(10), UiScale.scale(6)));
         bar.setBackground(new Color(32, 32, 44));
         bar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(60, 60, 75)));
 
@@ -103,11 +104,11 @@ public class MainFrame extends JFrame {
         btn.setBackground(bg);
         btn.setForeground(Color.WHITE);
         btn.setFocusPainted(false);
-        btn.setFont(new Font("Arial", Font.BOLD, 12));
-        btn.setPreferredSize(new Dimension(180, 46));
+        btn.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 12));
+        btn.setPreferredSize(UiScale.dimension(180, 46));
         btn.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(bg.brighter(), 1),
-                BorderFactory.createEmptyBorder(4, 8, 4, 8)));
+            BorderFactory.createEmptyBorder(UiScale.scale(4), UiScale.scale(8), UiScale.scale(4), UiScale.scale(8))));
         btn.addActionListener(al);
         return btn;
     }
@@ -248,16 +249,28 @@ public class MainFrame extends JFrame {
         UIManager.put("TextField.caretForeground",    Color.WHITE);
         UIManager.put("MenuBar.background",           new Color(38, 38, 50));
         UIManager.put("Menu.background",              new Color(38, 38, 50));
-        UIManager.put("Menu.foreground",              Color.WHITE);
+        UIManager.put("Menu.foreground",              Color.BLACK);
         UIManager.put("MenuItem.background",          new Color(48, 48, 64));
-        UIManager.put("MenuItem.foreground",          Color.WHITE);
+        UIManager.put("MenuItem.foreground",          Color.BLACK);
         UIManager.put("PopupMenu.background",         new Color(48, 48, 64));
         UIManager.put("OptionPane.background",        new Color(40, 40, 52));
         UIManager.put("OptionPane.messageForeground", Color.WHITE);
     }
 
+    private static void scaleUiDefaults() {
+        UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+        java.util.List<Object> keys = java.util.Collections.list(defaults.keys());
+        for (Object key : keys) {
+            Object value = defaults.get(key);
+            if (value instanceof Font) {
+                Font font = (Font) value;
+                defaults.put(key, UiScale.font(font, font.getSize()));
+            }
+        }
+    }
+
     private JMenu dmenu(String name) {
-        JMenu m = new JMenu(name); m.setForeground(Color.WHITE); return m;
+        JMenu m = new JMenu(name); m.setForeground(Color.BLACK); return m;
     }
     private JMenuItem ditem(String name, java.awt.event.ActionListener al) {
         JMenuItem i = new JMenuItem(name); i.addActionListener(al); return i;

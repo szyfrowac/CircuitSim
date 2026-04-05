@@ -23,12 +23,12 @@ public class ToolPanel extends JPanel {
     private JPanel inputRowsPanel;
 
     public ToolPanel() {
-        setPreferredSize(new Dimension(175, 0));
+        setPreferredSize(UiScale.dimension(175, 0));
         setBackground(new Color(40, 40, 40));
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(60, 60, 60)));
 
-        add(Box.createVerticalStrut(10));
+        add(Box.createVerticalStrut(UiScale.scale(10)));
 
         // ── Add Components ────────────────────────────────────────────────────
         addSectionLabel("Add Components");
@@ -39,9 +39,9 @@ public class ToolPanel extends JPanel {
         addGateButton("SWITCH");
         addGateButton("LED");
 
-        add(Box.createVerticalStrut(12));
+        add(Box.createVerticalStrut(UiScale.scale(12)));
         addDivider();
-        add(Box.createVerticalStrut(8));
+        add(Box.createVerticalStrut(UiScale.scale(8)));
 
         // ── Connect Nodes ─────────────────────────────────────────────────────
         addSectionLabel("Connect Nodes");
@@ -49,12 +49,12 @@ public class ToolPanel extends JPanel {
         addFieldLabel("Node 1");
         node1Field = createField();
         add(node1Field);
-        add(Box.createVerticalStrut(4));
+        add(Box.createVerticalStrut(UiScale.scale(4)));
 
         addFieldLabel("Node 2");
         node2Field = createField();
         add(node2Field);
-        add(Box.createVerticalStrut(8));
+        add(Box.createVerticalStrut(UiScale.scale(8)));
 
         JButton connectBtn = createStdButton("Connect");
         connectBtn.addActionListener(e -> {
@@ -68,9 +68,9 @@ public class ToolPanel extends JPanel {
         });
         add(connectBtn);
 
-        add(Box.createVerticalStrut(12));
+        add(Box.createVerticalStrut(UiScale.scale(12)));
         addDivider();
-        add(Box.createVerticalStrut(8));
+        add(Box.createVerticalStrut(UiScale.scale(8)));
 
         // ── Input Signals ─────────────────────────────────────────────────────
         addSectionLabel("Input Signals");
@@ -82,13 +82,13 @@ public class ToolPanel extends JPanel {
         add(inputRowsPanel);
         addInputRow(); // start with one row
 
-        add(Box.createVerticalStrut(6));
+        add(Box.createVerticalStrut(UiScale.scale(6)));
 
         JButton addInputBtn = createStdButton("+ Add Input");
         addInputBtn.addActionListener(e -> { addInputRow(); revalidate(); repaint(); });
         add(addInputBtn);
 
-        add(Box.createVerticalStrut(6));
+        add(Box.createVerticalStrut(UiScale.scale(6)));
 
         JButton applyBtn = createStdButton("Apply All Inputs");
         applyBtn.addActionListener(e -> applyAllSignals());
@@ -106,8 +106,8 @@ public class ToolPanel extends JPanel {
 
     private void addGateButton(String text) {
         JButton btn = new JButton(text);
-        btn.setMaximumSize(new Dimension(140, 30));
-        btn.setPreferredSize(new Dimension(140, 30));
+        btn.setMaximumSize(UiScale.dimension(140, 30));
+        btn.setPreferredSize(UiScale.dimension(140, 30));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setBackground(new Color(55, 55, 65));
         btn.setForeground(Color.WHITE);
@@ -115,13 +115,13 @@ public class ToolPanel extends JPanel {
         btn.setBorder(BorderFactory.createLineBorder(new Color(80, 80, 90)));
         btn.addActionListener(e -> { if (toolListener != null) toolListener.accept(text); });
         add(btn);
-        add(Box.createVerticalStrut(4));
+        add(Box.createVerticalStrut(UiScale.scale(4)));
     }
 
     private JButton createStdButton(String text) {
         JButton btn = new JButton(text);
-        btn.setMaximumSize(new Dimension(140, 28));
-        btn.setPreferredSize(new Dimension(140, 28));
+        btn.setMaximumSize(UiScale.dimension(140, 28));
+        btn.setPreferredSize(UiScale.dimension(140, 28));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setBackground(new Color(55, 55, 65));
         btn.setForeground(Color.WHITE);
@@ -133,25 +133,25 @@ public class ToolPanel extends JPanel {
     private void addSectionLabel(String text) {
         JLabel lbl = new JLabel(text);
         lbl.setForeground(Color.WHITE);
-        lbl.setFont(new Font("Arial", Font.BOLD, 12));
+        lbl.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 12));
         lbl.setAlignmentX(Component.CENTER_ALIGNMENT);
         add(lbl);
-        add(Box.createVerticalStrut(6));
+        add(Box.createVerticalStrut(UiScale.scale(6)));
     }
 
     private void addFieldLabel(String text) {
         JLabel lbl = new JLabel(text);
         lbl.setForeground(new Color(180, 180, 180));
-        lbl.setFont(new Font("Arial", Font.PLAIN, 11));
+        lbl.setFont(UiScale.font(Font.SANS_SERIF, Font.PLAIN, 11));
         lbl.setAlignmentX(Component.CENTER_ALIGNMENT);
         add(lbl);
-        add(Box.createVerticalStrut(2));
+        add(Box.createVerticalStrut(UiScale.scale(2)));
     }
 
     private JTextField createField() {
         JTextField f = new JTextField();
-        f.setMaximumSize(new Dimension(120, 26));
-        f.setPreferredSize(new Dimension(120, 26));
+        f.setMaximumSize(UiScale.dimension(120, 26));
+        f.setPreferredSize(UiScale.dimension(120, 26));
         f.setHorizontalAlignment(JTextField.CENTER);
         f.setAlignmentX(Component.CENTER_ALIGNMENT);
         f.setBackground(new Color(55, 55, 65));
@@ -163,20 +163,20 @@ public class ToolPanel extends JPanel {
 
     private void addDivider() {
         JSeparator sep = new JSeparator();
-        sep.setMaximumSize(new Dimension(155, 1));
+        sep.setMaximumSize(UiScale.dimension(155, 1));
         sep.setForeground(new Color(70, 70, 70));
         sep.setAlignmentX(Component.CENTER_ALIGNMENT);
         add(sep);
     }
 
     private void addInputRow() {
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 2));
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.CENTER, UiScale.scale(4), UiScale.scale(2)));
         row.setBackground(new Color(40, 40, 40));
-        row.setMaximumSize(new Dimension(160, 32));
+        row.setMaximumSize(UiScale.dimension(160, 32));
 
         JLabel nodeLbl = new JLabel("Node");
         nodeLbl.setForeground(new Color(180, 180, 180));
-        nodeLbl.setFont(new Font("Arial", Font.PLAIN, 11));
+        nodeLbl.setFont(UiScale.font(Font.SANS_SERIF, Font.PLAIN, 11));
 
         JTextField nodeF = new JTextField(3);
         nodeF.setBackground(new Color(55, 55, 65));

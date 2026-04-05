@@ -1,81 +1,188 @@
 # Digital Circuit Simulator
 
-A Java Swing-based combinational logic circuit simulator.
+A Java Swing-based digital combinational logic simulator with interactive wiring, live simulation, XML save/load, and truth-table generation.
 
 ## Requirements
+
 - Java JDK 11 or later
-- Download from: https://adoptium.net or https://www.oracle.com/java/
+- `javac` and `java` available in your PATH
 
-## How to Run
+Check installation:
 
-### Windows
-Double-click `build_and_run.bat`
-OR in Command Prompt:
+```bash
+javac -version
+java -version
 ```
-build_and_run.bat
-```
+
+## Quick Start
 
 ### Linux / macOS
+
 ```bash
 chmod +x build_and_run.sh
 ./build_and_run.sh
 ```
 
----
+### Windows
 
-## Features
+Run:
 
-### Components
-| Component | Description |
-|-----------|-------------|
-| AND | 2-input AND gate |
-| OR  | 2-input OR gate  |
-| NOT | 1-input NOT gate |
-| XOR | 2-input XOR gate |
-| SWITCH | Interactive toggle; open → VCC (1), closed → VCC (1) |
-| LED | Lights green when input = 1, dark red when input = 0 |
+```bat
+build_and_run.bat
+```
 
-### How to Use
+or double-click `build_and_run.bat`.
 
-1. **Add a gate**: Click a button in the left panel (e.g. AND), then click on the canvas.
-2. **Read node numbers**: Each terminal shows a number (yellow) next to the dot.
-3. **Connect nodes**: Enter two node numbers in "Connect Nodes" → Connect.
-4. **Toggle switch**: Left-click any SWITCH on the canvas.
-5. **Delete gate**: Select it (left-click) → press Delete, or use toolbar button.
-6. **Delete wire**: Right-click on a wire.
-7. **Manual signal**: Enter node + value (0/1) in "Input Signals" → Apply All.
-8. **Save/Load**: File → Save / Open (.xml files).
-9. **Startup Open Option**: On launch, choose to open an existing saved circuit.
-10. **Truth Table**: Tools → Truth Table Generator.
-11. **Verify**: Tools → Verification (detects short circuits).
+## Manual Build and Run
 
-### Node Wiring Rules
-- Output nodes are on the **right** side of each gate.
-- Input nodes are on the **left** side.
-- Connect an output node → an input node to form a wire.
-- Wires are drawn with right-angle routing and colour: **green = HIGH (1)**, grey = LOW (0).
+From the project root:
 
-### Simulation Rules
-- Open SWITCH output → pulled to VCC (1).
-- Open LED input → pulled to GND (0).
-- Short circuit: two gates driving the same node to different values → red status bar alert.
+```bash
+javac -d out -sourcepath srcfix \
+    srcfix/Main.java \
+    srcfix/model/Wire.java \
+    srcfix/model/GateVisual.java \
+    srcfix/controller/CircuitEngine.java \
+    srcfix/controller/CircuitXmlIO.java \
+    srcfix/view/UiScale.java \
+    srcfix/view/StatusPanel.java \
+    srcfix/view/TruthTableDialog.java \
+    srcfix/view/ToolPanel.java \
+    srcfix/view/CircuitPanel.java \
+    srcfix/view/MainFrame.java
 
----
+java -cp out Main
+```
+
+## What You Can Build
+
+- Combinational circuits using AND, OR, NOT, XOR, SWITCH, and LED
+- Branching wires by connecting into an existing wire
+- Truth tables for all switch combinations
+- XML project save/load
+
+## Components
+
+| Component | Inputs | Outputs | Notes |
+|---|---:|---:|---|
+| AND | 2 | 1 | Output is HIGH only if both inputs are HIGH |
+| OR | 2 | 1 | Output is HIGH if any input is HIGH |
+| NOT | 1 | 1 | Output is inverse of input |
+| XOR | 2 | 1 | Output is HIGH if inputs differ |
+| SWITCH | 0 | 1 | Click to toggle; closed = 1, open = 0 |
+| LED | 1 | 1* | Visual indicator; glows when driven HIGH |
+
+`*` LED internally has an output node ID for model compatibility, but is used as an indicator.
+
+## How to Use
+
+### 1) Place components
+
+1. Choose a gate/tool from the left panel.
+2. A floating preview follows the mouse on the circuit panel.
+3. Click to place and fix the component at that location.
+4. Press `Esc` to cancel tool mode.
+
+### 2) Create wires (port-to-port interaction)
+
+1. Click a port to start a wire.
+2. Move the mouse to see the live wire preview.
+3. Click another port to terminate the wire.
+4. You can also click an existing wire segment to insert a junction and branch.
+
+### 3) Connect by node numbers (optional)
+
+- Enter node IDs in the "Connect Nodes" section and press Connect.
+- Reverse order is auto-corrected where possible.
+
+### 4) Simulate
+
+- Click SWITCH components to toggle logic values.
+- LED updates live according to circuit state.
+
+### 5) Edit
+
+- Select a gate and press `Delete` to remove it.
+- Right-click a wire to remove it.
+- Right-click during wire creation to cancel pending wire.
+
+### 6) Analyze and verify
+
+- `Tools -> Verification` checks for short-circuit conditions.
+- `Tools -> Truth Table Generator` enumerates all switch combinations.
+
+### 7) Save and load
+
+- `File -> Save` / `File -> Save As...` writes XML.
+- `File -> Open` restores gates, wires, and manual signals.
+
+## Wiring Rules and Safety Checks
+
+- Preferred direction: output/junction -> input/junction
+- Direct same-gate self-loop is blocked (a gate output cannot wire to its own input)
+- Duplicate wires are blocked
+- Invalid directions are rejected with a connect error
+
+## Visual Semantics
+
+- Wire color:
+    - Green = HIGH (1)
+    - Gray = LOW (0)
+- LED:
+    - Green glow = HIGH
+    - Dark red = LOW
+
+## Simulation Rules
+
+- SWITCH output is seeded directly from state:
+    - closed -> 1
+    - open -> 0
+- Signals propagate iteratively through gates and wires
+- If conflicting drivers force different values on the same node, simulation reports short circuit
+- Undriven LED input defaults to 0
 
 ## Project Structure
 
+```text
+.
+├── README.md
+├── build_and_run.sh
+├── build_and_run.bat
+└── srcfix/
+        ├── Main.java
+        ├── controller/
+        │   ├── CircuitEngine.java
+        │   └── CircuitXmlIO.java
+        ├── model/
+        │   ├── GateVisual.java
+        │   └── Wire.java
+        └── view/
+                ├── MainFrame.java
+                ├── CircuitPanel.java
+                ├── ToolPanel.java
+                ├── StatusPanel.java
+                ├── TruthTableDialog.java
+                └── UiScale.java
 ```
-srcfix/
-├── Main.java                    Entry point
-├── model/
-│   ├── GateVisual.java          Gate data model + serialization
-│   └── Wire.java                Wire (from-node → to-node)
-├── controller/
-│   └── CircuitEngine.java       Simulation, truth table, verification
-└── view/
-    ├── MainFrame.java           Top-level JFrame + menus + toolbar
-    ├── CircuitPanel.java        Canvas — drawing + interaction
-    ├── ToolPanel.java           Left sidebar
-    ├── StatusPanel.java         Bottom status bar
-    └── TruthTableDialog.java    Truth table popup
-```
+
+## Troubleshooting
+
+### Build fails with `javac: command not found`
+
+- Install JDK 11+ and ensure `javac` is in PATH.
+
+### VS Code shows package/import errors
+
+- Ensure Java source root points to `srcfix`.
+- If needed, run `Java: Clean Java Language Server Workspace` and reload VS Code.
+
+### Menu text is not readable
+
+- The app sets menu text color explicitly in `MainFrame` UI defaults.
+- Restart the app after pulling latest changes.
+
+## Current Limitations
+
+- Combinational logic only (no sequential elements like flip-flops)
+- Undo/Redo and Zoom are placeholders
+- Branching from wire-to-wire works via inserted junction nodes, but junctions are implicit (not separate visible components)

@@ -28,8 +28,9 @@ public class CircuitPanel extends JPanel {
 
     private Integer pendingWireFromNode = null;
     private Point pendingWireMouse = null;
+    private Point pendingGateMouse = null;
 
-    private static final int PORT_HIT_RADIUS = 9;
+    private static final int PORT_HIT_RADIUS = UiScale.scale(9);
 
     private final StatusPanel statusPanel;
 
@@ -45,6 +46,7 @@ public class CircuitPanel extends JPanel {
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE)  {
                     selectedTool = null;
                     selectedGate = null;
+                    pendingGateMouse = null;
                     cancelPendingWire();
                     repaint();
                 }
@@ -114,6 +116,23 @@ public class CircuitPanel extends JPanel {
                     return;
                 }
 
+                // If a tool is selected, place the gate at click location.
+                if (selectedTool != null) {
+                    GateVisual gv = new GateVisual(selectedTool,
+                            e.getX() - GateVisual.WIDTH  / 2,
+                            e.getY() - GateVisual.HEIGHT / 2);
+                    gates.add(gv);
+                    selectedTool = null;
+                    pendingGateMouse = null;
+                    selectedGate = gv;
+                    runSimulation();
+                    repaint();
+                    statusPanel.setStatusOk("Placed " + gv.getType()
+                            + " — inputs: " + gv.getInputNodeIds()
+                            + "  output: " + gv.getOutputNodeId());
+                    return;
+                }
+
                 // Left-click on an existing gate
                 for (int i = gates.size() - 1; i >= 0; i--) {
                     GateVisual g = gates.get(i);
@@ -133,23 +152,8 @@ public class CircuitPanel extends JPanel {
                     return;
                 }
 
-                // Left-click on empty canvas → place gate if tool active
-                if (selectedTool != null) {
-                    GateVisual gv = new GateVisual(selectedTool,
-                            e.getX() - GateVisual.WIDTH  / 2,
-                            e.getY() - GateVisual.HEIGHT / 2);
-                    gates.add(gv);
-                    selectedTool = null;
-                    selectedGate = gv;
-                    runSimulation();
-                    repaint();
-                    statusPanel.setStatusOk("Placed " + gv.getType()
-                            + " — inputs: " + gv.getInputNodeIds()
-                            + "  output: " + gv.getOutputNodeId());
-                } else {
-                    selectedGate = null;
-                    repaint();
-                }
+                selectedGate = null;
+                repaint();
             }
             @Override public void mouseReleased(MouseEvent e) { draggingGate = null; }
         });
@@ -164,12 +168,31 @@ public class CircuitPanel extends JPanel {
                 if (pendingWireFromNode != null) {
                     pendingWireMouse = e.getPoint();
                     repaint();
+                    return;
+                }
+                if (selectedTool != null) {
+                    pendingGateMouse = e.getPoint();
+                    repaint();
                 }
             }
 
             @Override public void mouseMoved(MouseEvent e) {
                 if (pendingWireFromNode != null) {
                     pendingWireMouse = e.getPoint();
+                    repaint();
+                    return;
+                }
+                if (selectedTool != null) {
+                    pendingGateMouse = e.getPoint();
+                    repaint();
+                }
+            }
+        });
+
+        addMouseListener(new MouseAdapter() {
+            @Override public void mouseExited(MouseEvent e) {
+                if (selectedTool != null) {
+                    pendingGateMouse = null;
                     repaint();
                 }
             }
@@ -180,6 +203,7 @@ public class CircuitPanel extends JPanel {
     public void setSelectedTool(String tool) {
         selectedTool = tool;
         selectedGate = null;
+        pendingGateMouse = getMousePosition();
         statusPanel.setStatusOk("Click canvas to place " + tool);
         repaint();
     }
@@ -212,6 +236,12 @@ public class CircuitPanel extends JPanel {
             to = n1;
         } else {
             showConnectError("Connect an output/junction node to an input/junction node.", showErrors);
+            return false;
+        }
+
+        GateVisual sourceGate = gateByOutputNode(from);
+        if (sourceGate != null && sourceGate.getInputNodeIds().contains(to)) {
+            showConnectError("Cannot connect a gate output to an input of the same gate.", showErrors);
             return false;
         }
 
@@ -308,22 +338,58 @@ public class CircuitPanel extends JPanel {
 
         // Subtle grid
         g2.setColor(new Color(38, 38, 52));
-        for (int gx = 0; gx < getWidth();  gx += 28)
-            for (int gy = 0; gy < getHeight(); gy += 28)
+        int gridStep = UiScale.scale(28);
+        for (int gx = 0; gx < getWidth();  gx += gridStep)
+            for (int gy = 0; gy < getHeight(); gy += gridStep)
                 g2.fillRect(gx, gy, 1, 1);
 
         for (Wire wire : wires)   drawWire(g2, wire);
         for (GateVisual gate : gates) drawGate(g2, gate);
 
+        if (selectedTool != null) {
+            drawFloatingGatePreview(g2);
+        }
+
         if (pendingWireFromNode != null && pendingWireMouse != null) {
             Point from = findNodePos(pendingWireFromNode);
             if (from != null) {
                 g2.setColor(new Color(120, 180, 255));
-                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.setStroke(new BasicStroke(UiScale.scale(1.8f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 g2.drawLine(from.x, from.y, pendingWireMouse.x, pendingWireMouse.y);
-                g2.fillOval(from.x - 5, from.y - 5, 10, 10);
+                int handle = UiScale.scale(5);
+                g2.fillOval(from.x - handle, from.y - handle, handle * 2, handle * 2);
             }
         }
+    }
+
+    private void drawFloatingGatePreview(Graphics2D g2) {
+        Point p = pendingGateMouse;
+        if (p == null) return;
+
+        int w = GateVisual.WIDTH;
+        int h = GateVisual.HEIGHT;
+        int x = p.x - w / 2;
+        int y = p.y - h / 2;
+
+        Composite oldComposite = g2.getComposite();
+        Stroke oldStroke = g2.getStroke();
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.45f));
+        g2.setColor(new Color(100, 160, 220));
+        g2.fillRoundRect(x, y, w, h, UiScale.scale(10), UiScale.scale(10));
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.9f));
+        g2.setColor(new Color(210, 235, 255));
+        g2.setStroke(new BasicStroke(UiScale.scale(1.8f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.drawRoundRect(x, y, w, h, UiScale.scale(10), UiScale.scale(10));
+
+        g2.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 11));
+        FontMetrics fm = g2.getFontMetrics();
+        String label = selectedTool;
+        g2.drawString(label, x + (w - fm.stringWidth(label)) / 2, y + h / 2 + fm.getAscent() / 2 - 2);
+
+        g2.setComposite(oldComposite);
+        g2.setStroke(oldStroke);
     }
 
     // ── Wire ──────────────────────────────────────────────────────────────────
@@ -338,7 +404,7 @@ public class CircuitPanel extends JPanel {
         Color wireColor = high ? new Color(0, 210, 90) : new Color(90, 90, 120);
 
         g2.setColor(wireColor);
-        g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setStroke(new BasicStroke(UiScale.scale(2f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
         // Orthogonal routing: horizontal then vertical then horizontal
         int midX = (p1.x + p2.x) / 2;
@@ -348,8 +414,9 @@ public class CircuitPanel extends JPanel {
 
         // Junction dots
         g2.setColor(wireColor.brighter());
-        g2.fillOval(p1.x - 3, p1.y - 3, 6, 6);
-        g2.fillOval(p2.x - 3, p2.y - 3, 6, 6);
+        int dot = UiScale.scale(3);
+        g2.fillOval(p1.x - dot, p1.y - dot, dot * 2, dot * 2);
+        g2.fillOval(p2.x - dot, p2.y - dot, dot * 2, dot * 2);
     }
 
     // ── Gate ─────────────────────────────────────────────────────────────────
@@ -406,21 +473,24 @@ public class CircuitPanel extends JPanel {
         Color sigColor = high ? new Color(0, 210, 90) : new Color(90, 90, 120);
 
         g2.setColor(sigColor);
-        g2.setStroke(new BasicStroke(1.5f));
+        g2.setStroke(new BasicStroke(UiScale.scale(1.5f)));
         g2.drawLine(lineFromX, lineFromY, dotX, dotY);
 
         // Dot
         g2.setColor(new Color(210, 200, 110));
-        g2.fillOval(dotX - 4, dotY - 4, 8, 8);
+        int dot = UiScale.scale(4);
+        g2.fillOval(dotX - dot, dotY - dot, dot * 2, dot * 2);
         g2.setColor(new Color(110, 100, 50));
-        g2.drawOval(dotX - 4, dotY - 4, 8, 8);
+        g2.drawOval(dotX - dot, dotY - dot, dot * 2, dot * 2);
 
         // Label
         g2.setColor(new Color(230, 220, 110));
-        g2.setFont(new Font("Monospaced", Font.BOLD, 10));
+        g2.setFont(UiScale.font(Font.MONOSPACED, Font.BOLD, 10));
         String label = String.valueOf(nodeId);
-        if (isOutput) g2.drawString(label, dotX + 6, dotY + 4);
-        else          g2.drawString(label, dotX - 6 - g2.getFontMetrics().stringWidth(label), dotY + 4);
+        int xOffset = UiScale.scale(6);
+        int yOffset = UiScale.scale(4);
+        if (isOutput) g2.drawString(label, dotX + xOffset, dotY + yOffset);
+        else          g2.drawString(label, dotX - xOffset - g2.getFontMetrics().stringWidth(label), dotY + yOffset);
     }
 
     // ── Shape Renderers ───────────────────────────────────────────────────────
@@ -435,7 +505,7 @@ public class CircuitPanel extends JPanel {
         p.closePath();
         g2.setColor(fill); g2.fill(p);
         g2.setColor(body); g2.draw(p);
-        g2.setFont(new Font("Arial", Font.BOLD, 11)); g2.drawString("AND", x + 6, y + h/2 + 4);
+        g2.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 11)); g2.drawString("AND", x + UiScale.scale(6), y + h/2 + UiScale.scale(4));
     }
 
     private void drawOR(Graphics2D g2, int x, int y, int w, int h, Color body, Color fill) {
@@ -447,7 +517,7 @@ public class CircuitPanel extends JPanel {
         p.closePath();
         g2.setColor(fill); g2.fill(p);
         g2.setColor(body); g2.draw(p);
-        g2.setFont(new Font("Arial", Font.BOLD, 11)); g2.drawString("OR", x + 18, y + h/2 + 4);
+        g2.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 11)); g2.drawString("OR", x + UiScale.scale(18), y + h/2 + UiScale.scale(4));
     }
 
     private void drawNOT(Graphics2D g2, int x, int y, int w, int h, Color body, Color fill) {
@@ -455,8 +525,9 @@ public class CircuitPanel extends JPanel {
         int[] ys = { y, y + h, y + h/2 };
         g2.setColor(fill);  g2.fillPolygon(xs, ys, 3);
         g2.setColor(body);  g2.drawPolygon(xs, ys, 3);
-        g2.drawOval(x + w - 10, y + h/2 - 5, 10, 10);
-        g2.setFont(new Font("Arial", Font.BOLD, 11)); g2.drawString("NOT", x + 4, y + h/2 + 4);
+        int bubble = UiScale.scale(10);
+        g2.drawOval(x + w - bubble, y + h/2 - bubble / 2, bubble, bubble);
+        g2.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 11)); g2.drawString("NOT", x + UiScale.scale(4), y + h/2 + UiScale.scale(4));
     }
 
     private void drawXOR(Graphics2D g2, int x, int y, int w, int h, Color body, Color fill) {
@@ -474,7 +545,7 @@ public class CircuitPanel extends JPanel {
         extra.moveTo(x, y);
         extra.quadTo(x + w * 0.35, y + h * 0.5, x, y + h);
         g2.draw(extra);
-        g2.setFont(new Font("Arial", Font.BOLD, 11)); g2.drawString("XOR", x + 14, y + h/2 + 4);
+        g2.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 11)); g2.drawString("XOR", x + UiScale.scale(14), y + h/2 + UiScale.scale(4));
     }
 
     private void drawSWITCH(Graphics2D g2, int x, int y, int w, int h, GateVisual gate, boolean sel) {
@@ -483,45 +554,50 @@ public class CircuitPanel extends JPanel {
         Color box = new Color(42, 42, 58);
 
         g2.setColor(box);
-        g2.fillRoundRect(x, y + h/4, w, h/2, 8, 8);
+        int arc = UiScale.scale(8);
+        g2.fillRoundRect(x, y + h/4, w, h/2, arc, arc);
         g2.setColor(c);
-        g2.setStroke(new BasicStroke(2f));
-        g2.drawRoundRect(x, y + h/4, w, h/2, 8, 8);
+        g2.setStroke(new BasicStroke(UiScale.scale(2f)));
+        g2.drawRoundRect(x, y + h/4, w, h/2, arc, arc);
 
         // Contact dots
         g2.setColor(c);
-        g2.fillOval(x + 4,         midY - 4, 8, 8);
-        g2.fillOval(x + w - 4 - 8, midY - 4, 8, 8);
+        int contact = UiScale.scale(4);
+        g2.fillOval(x + contact,         midY - contact, contact * 2, contact * 2);
+        g2.fillOval(x + w - contact - contact * 2, midY - contact, contact * 2, contact * 2);
 
         // Lever
-        g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setStroke(new BasicStroke(UiScale.scale(2.5f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         if (gate.isClosed()) {
             g2.setColor(new Color(0, 210, 90));
-            g2.drawLine(x + 12, midY, x + w - 12, midY);
+            int leverInset = UiScale.scale(12);
+            g2.drawLine(x + leverInset, midY, x + w - leverInset, midY);
         } else {
             g2.setColor(new Color(220, 90, 70));
-            g2.drawLine(x + 12, midY, x + w - 16, midY - 16);
+            int leverInset = UiScale.scale(12);
+            int leverEnd = UiScale.scale(16);
+            g2.drawLine(x + leverInset, midY, x + w - leverEnd, midY - leverEnd);
         }
 
         // State label
-        g2.setFont(new Font("Arial", Font.BOLD, 9));
+        g2.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 9));
         g2.setColor(gate.isClosed() ? new Color(0,210,90) : new Color(220,90,70));
         String st = gate.isClosed() ? "[1]" : "[0]";
-        g2.drawString(st, x + w/2 - 8, midY + 4);
+        g2.drawString(st, x + w/2 - UiScale.scale(8), midY + UiScale.scale(4));
 
         // "SWITCH" caption below
         g2.setColor(c);
-        g2.setFont(new Font("Arial", Font.PLAIN, 9));
-        g2.drawString("SWITCH", x + 6, y + h + 12);
+        g2.setFont(UiScale.font(Font.SANS_SERIF, Font.PLAIN, 9));
+        g2.drawString("SWITCH", x + UiScale.scale(6), y + h + UiScale.scale(12));
 
         // Input terminal drawn on left (VCC symbol)
-        int lx = x - 20, ly = midY;
+        int lx = x - UiScale.scale(20), ly = midY;
         g2.setColor(new Color(90, 90, 120));
-        g2.setStroke(new BasicStroke(1.5f));
+        g2.setStroke(new BasicStroke(UiScale.scale(1.5f)));
         // No actual input node for switch; just a VCC symbol
         g2.setColor(new Color(150, 150, 180));
-        g2.setFont(new Font("Arial", Font.BOLD, 9));
-        g2.drawString("VCC", x - 22, midY + 4);
+        g2.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 9));
+        g2.drawString("VCC", x - UiScale.scale(22), midY + UiScale.scale(4));
     }
 
     private void drawLED(Graphics2D g2, int x, int y, int diameter, GateVisual gate, boolean sel) {
@@ -534,8 +610,8 @@ public class CircuitPanel extends JPanel {
 
         if (on) {
             // Glow halo
-            for (int r = 12; r > 0; r -= 3) {
-                g2.setColor(new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(), 20 + (12 - r) * 4));
+            for (int r = UiScale.scale(12); r > 0; r -= UiScale.scale(3)) {
+                g2.setColor(new Color(glowCol.getRed(), glowCol.getGreen(), glowCol.getBlue(), 20 + (UiScale.scale(12) - r) * 4));
                 g2.fillOval(x - r, y - r, diameter + 2*r, diameter + 2*r);
             }
         }
@@ -545,7 +621,7 @@ public class CircuitPanel extends JPanel {
 
         Color border = sel ? new Color(0, 190, 230) : (on ? new Color(0, 160, 60) : new Color(120, 50, 50));
         g2.setColor(border);
-        g2.setStroke(new BasicStroke(2.5f));
+        g2.setStroke(new BasicStroke(UiScale.scale(2.5f)));
         g2.drawOval(x, y, diameter, diameter);
 
         // Shine
@@ -556,18 +632,18 @@ public class CircuitPanel extends JPanel {
 
         // "LED" caption
         g2.setColor(on ? new Color(0, 210, 90) : new Color(150, 70, 70));
-        g2.setFont(new Font("Arial", Font.BOLD, 9));
-        g2.drawString("LED", x + diameter/2 - 9, y + diameter + 13);
+        g2.setFont(UiScale.font(Font.SANS_SERIF, Font.BOLD, 9));
+        g2.drawString("LED", x + diameter/2 - UiScale.scale(9), y + diameter + UiScale.scale(13));
 
         // Input terminal on left side
         int ny = y + diameter / 2;
-        int nx = x - 20;
+        int nx = x - UiScale.scale(20);
         drawTerminal(g2, inputNode, nx, ny, nx, ny, nx, ny, false);
         // draw stub from terminal to LED body
         Integer sig = lastSimResult.get(inputNode);
         boolean high = (sig != null && sig == 1);
         g2.setColor(high ? new Color(0, 210, 90) : new Color(90, 90, 120));
-        g2.setStroke(new BasicStroke(1.5f));
+        g2.setStroke(new BasicStroke(UiScale.scale(1.5f)));
         g2.drawLine(nx, ny, x, ny);
     }
 
@@ -594,15 +670,15 @@ public class CircuitPanel extends JPanel {
                 for (int i = 0; i < ins.size(); i++) {
                     if (ins.get(i) == nodeId) {
                         if (gate.getType().equals("LED"))
-                            return new Point(x - 20, y + h / 2);
-                        return new Point(x - 20, y + spacing * (i + 1));
+                            return new Point(x - UiScale.scale(20), y + h / 2);
+                        return new Point(x - UiScale.scale(20), y + spacing * (i + 1));
                     }
                 }
             }
 
             // Output node (right side)
             if (gate.getOutputNodeId() == nodeId)
-                return new Point(x + w + 20, y + h / 2);
+                return new Point(x + w + UiScale.scale(20), y + h / 2);
         }
         return null;
     }
@@ -649,9 +725,10 @@ public class CircuitPanel extends JPanel {
             Point p2 = findNodePos(wire.getToNode());
             if (p1 == null || p2 == null) continue;
             int midX = (p1.x + p2.x) / 2;
-            if (Line2D.ptSegDist(p1.x, p1.y, midX, p1.y, p.x, p.y) < 6) return wire;
-            if (Line2D.ptSegDist(midX, p1.y, midX, p2.y, p.x, p.y) < 6) return wire;
-            if (Line2D.ptSegDist(midX, p2.y, p2.x, p2.y, p.x, p.y) < 6) return wire;
+            int hit = UiScale.scale(6);
+            if (Line2D.ptSegDist(p1.x, p1.y, midX, p1.y, p.x, p.y) < hit) return wire;
+            if (Line2D.ptSegDist(midX, p1.y, midX, p2.y, p.x, p.y) < hit) return wire;
+            if (Line2D.ptSegDist(midX, p2.y, p2.x, p2.y, p.x, p.y) < hit) return wire;
         }
         return null;
     }
@@ -726,5 +803,12 @@ public class CircuitPanel extends JPanel {
 
     private boolean isJunctionNode(int nodeId) {
         return junctionNodePositions.containsKey(nodeId);
+    }
+
+    private GateVisual gateByOutputNode(int nodeId) {
+        for (GateVisual gate : gates) {
+            if (gate.getOutputNodeId() == nodeId) return gate;
+        }
+        return null;
     }
 }

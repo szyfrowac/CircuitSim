@@ -1,5 +1,7 @@
 package model;
 
+import view.UiScale;
+
 import java.awt.*;
 import java.util.*;
 import java.util.List;
@@ -23,8 +25,8 @@ public class GateVisual {
     private int componentId;
     private int x, y;
 
-    public static final int WIDTH  = 80;
-    public static final int HEIGHT = 60;
+    public static final int WIDTH  = UiScale.scale(80);
+    public static final int HEIGHT = UiScale.scale(60);
 
     private List<Integer> inputNodeIds = new ArrayList<>();
     private int           outputNodeId;

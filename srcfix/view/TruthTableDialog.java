@@ -9,7 +9,7 @@ public class TruthTableDialog extends JDialog {
 
     public TruthTableDialog(JFrame parent, List<String[]> tableData) {
         super(parent, "Truth Table", true);
-        setSize(600, 400);
+        setSize(UiScale.dimension(600, 400));
         setLocationRelativeTo(parent);
         setBackground(new Color(30, 30, 40));
 
@@ -31,11 +31,11 @@ public class TruthTableDialog extends JDialog {
         table.setBackground(new Color(35, 35, 50));
         table.setForeground(Color.WHITE);
         table.setGridColor(new Color(70, 70, 90));
-        table.setRowHeight(24);
-        table.setFont(new Font("Monospaced", Font.PLAIN, 13));
+        table.setRowHeight(UiScale.scale(24));
+        table.setFont(UiScale.font(Font.MONOSPACED, Font.PLAIN, 13));
         table.getTableHeader().setBackground(new Color(50, 50, 70));
         table.getTableHeader().setForeground(Color.WHITE);
-        table.getTableHeader().setFont(new Font("Monospaced", Font.BOLD, 13));
+        table.getTableHeader().setFont(UiScale.font(Font.MONOSPACED, Font.BOLD, 13));
 
         // Colour rows: 1 = green, 0 = grey, SHORT = red
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {

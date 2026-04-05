@@ -12,17 +12,17 @@ public class StatusPanel extends JPanel {
         setLayout(new BorderLayout());
         setBackground(new Color(30, 30, 30));
         setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(60, 60, 60)));
-        setPreferredSize(new Dimension(0, 28));
+        setPreferredSize(UiScale.dimension(0, 28));
 
         statusLabel = new JLabel("  Status: Ready");
         statusLabel.setForeground(new Color(80, 200, 80));
-        statusLabel.setFont(new Font("Monospaced", Font.BOLD, 12));
+        statusLabel.setFont(UiScale.font(Font.MONOSPACED, Font.BOLD, 12));
 
         hintLabel = new JLabel(
             "Quick Guide: Left-click to place or select, Right-click to delete wire, " +
             "'Apply Input' to set signals, 'Delete Gate' to remove component   ");
         hintLabel.setForeground(new Color(150, 150, 150));
-        hintLabel.setFont(new Font("Monospaced", Font.PLAIN, 11));
+        hintLabel.setFont(UiScale.font(Font.MONOSPACED, Font.PLAIN, 11));
 
         add(statusLabel, BorderLayout.WEST);
         add(hintLabel,   BorderLayout.EAST);
