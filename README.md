@@ -1,4 +1,4 @@
-# Digital Circuit Simulator
+# CircuitSim - Digital Circuit Simulator
 
 A Java Swing-based digital combinational logic simulator with interactive wiring, live simulation, XML save/load, and truth-table generation.
 
