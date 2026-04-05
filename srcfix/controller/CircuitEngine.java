@@ -164,7 +164,7 @@ public class CircuitEngine {
         int a = signals.getOrDefault(ins.get(0), 0);
         switch (g.getType()) {
             case "NOT": return a == 0 ? 1 : 0;
-            case "LED": return a;
+            case "LED": return Math.max(a, signals.getOrDefault(g.getOutputNodeId(), 0));
             case "AND": { int b = signals.getOrDefault(ins.get(1), 0); return a & b; }
             case "OR":  { int b = signals.getOrDefault(ins.get(1), 0); return a | b; }
             case "XOR": { int b = signals.getOrDefault(ins.get(1), 0); return a ^ b; }

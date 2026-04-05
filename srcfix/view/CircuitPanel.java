@@ -24,6 +24,12 @@ public class CircuitPanel extends JPanel {
 
     private Map<Integer,Integer> manualSignals  = new HashMap<>();
     private Map<Integer,Integer> lastSimResult  = new HashMap<>();
+    private final Map<Integer, Point> junctionNodePositions = new HashMap<>();
+
+    private Integer pendingWireFromNode = null;
+    private Point pendingWireMouse = null;
+
+    private static final int PORT_HIT_RADIUS = 9;
 
     private final StatusPanel statusPanel;
 
@@ -36,7 +42,12 @@ public class CircuitPanel extends JPanel {
         addKeyListener(new KeyAdapter() {
             @Override public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_DELETE)  deleteSelected();
-                if (e.getKeyCode() == KeyEvent.VK_ESCAPE)  { selectedTool = null; selectedGate = null; repaint(); }
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE)  {
+                    selectedTool = null;
+                    selectedGate = null;
+                    cancelPendingWire();
+                    repaint();
+                }
             }
         });
 
@@ -46,8 +57,60 @@ public class CircuitPanel extends JPanel {
 
                 // Right-click → remove wire under cursor
                 if (SwingUtilities.isRightMouseButton(e)) {
+                    if (pendingWireFromNode != null) {
+                        cancelPendingWire();
+                        statusPanel.setStatusWarn("Wire creation canceled.");
+                        repaint();
+                        return;
+                    }
                     Wire hit = wireAt(e.getPoint());
                     if (hit != null) { wires.remove(hit); runSimulation(); repaint(); }
+                    return;
+                }
+
+                // While creating a wire: finish on a port or an existing wire.
+                if (pendingWireFromNode != null) {
+                    Integer targetPort = portAt(e.getPoint());
+                    if (targetPort != null) {
+                        if (targetPort.equals(pendingWireFromNode)) {
+                            cancelPendingWire();
+                            statusPanel.setStatusWarn("Wire creation canceled.");
+                            repaint();
+                            return;
+                        }
+                        if (tryConnectNodes(pendingWireFromNode, targetPort, true)) {
+                            cancelPendingWire();
+                        }
+                        repaint();
+                        return;
+                    }
+
+                    Wire hitWire = wireAt(e.getPoint());
+                    if (hitWire != null) {
+                        Integer junctionNode = createOrReuseJunctionOnWire(hitWire, e.getPoint());
+                        if (junctionNode != null && tryConnectNodes(pendingWireFromNode, junctionNode, true)) {
+                            cancelPendingWire();
+                        }
+                        runSimulation();
+                        repaint();
+                        return;
+                    }
+
+                    pendingWireMouse = e.getPoint();
+                    repaint();
+                    return;
+                }
+
+                // Start wire by clicking a port.
+                Integer clickedPort = portAt(e.getPoint());
+                if (clickedPort != null) {
+                    pendingWireFromNode = clickedPort;
+                    pendingWireMouse = e.getPoint();
+                    selectedTool = null;
+                    draggingGate = null;
+                    selectedGate = null;
+                    statusPanel.setStatusOk("Wire started from node " + clickedPort + ". Click a port or wire to connect.");
+                    repaint();
                     return;
                 }
 
@@ -96,6 +159,18 @@ public class CircuitPanel extends JPanel {
                 if (draggingGate != null) {
                     draggingGate.setPosition(e.getX() - dragOffX, e.getY() - dragOffY);
                     repaint();
+                    return;
+                }
+                if (pendingWireFromNode != null) {
+                    pendingWireMouse = e.getPoint();
+                    repaint();
+                }
+            }
+
+            @Override public void mouseMoved(MouseEvent e) {
+                if (pendingWireFromNode != null) {
+                    pendingWireMouse = e.getPoint();
+                    repaint();
                 }
             }
         });
@@ -110,24 +185,47 @@ public class CircuitPanel extends JPanel {
     }
 
     public void connectNodes(int n1, int n2) {
+        tryConnectNodes(n1, n2, true);
+    }
+
+    private boolean tryConnectNodes(int n1, int n2, boolean showErrors) {
         if (findNodePos(n1) == null) {
-            statusPanel.setStatusError("Node " + n1 + " not found on canvas.");
-            JOptionPane.showMessageDialog(this, "Node " + n1 + " not found.", "Connect Error", JOptionPane.ERROR_MESSAGE);
-            return;
+            showConnectError("Node " + n1 + " not found on canvas.", showErrors);
+            return false;
         }
         if (findNodePos(n2) == null) {
-            statusPanel.setStatusError("Node " + n2 + " not found on canvas.");
-            JOptionPane.showMessageDialog(this, "Node " + n2 + " not found.", "Connect Error", JOptionPane.ERROR_MESSAGE);
-            return;
+            showConnectError("Node " + n2 + " not found on canvas.", showErrors);
+            return false;
         }
-        for (Wire w : wires) if (w.getFromNode() == n1 && w.getToNode() == n2) {
-            statusPanel.setStatusWarn("Wire " + n1 + "→" + n2 + " already exists.");
-            return;
+
+        int from = n1;
+        int to = n2;
+        boolean n1Source = isOutputNode(n1) || isJunctionNode(n1);
+        boolean n1Sink = isInputNode(n1) || isJunctionNode(n1);
+        boolean n2Source = isOutputNode(n2) || isJunctionNode(n2);
+        boolean n2Sink = isInputNode(n2) || isJunctionNode(n2);
+
+        if (n1Source && n2Sink) {
+            // keep direction
+        } else if (n2Source && n1Sink) {
+            from = n2;
+            to = n1;
+        } else {
+            showConnectError("Connect an output/junction node to an input/junction node.", showErrors);
+            return false;
         }
-        wires.add(new Wire(n1, n2));
+
+        for (Wire w : wires) if ((w.getFromNode() == from && w.getToNode() == to)
+                || (w.getFromNode() == to && w.getToNode() == from)) {
+            statusPanel.setStatusWarn("Wire " + from + "→" + to + " already exists.");
+            return false;
+        }
+
+        wires.add(new Wire(from, to));
         runSimulation();
         repaint();
-        statusPanel.setStatusOk("Connected " + n1 + " → " + n2);
+        statusPanel.setStatusOk("Connected " + from + " → " + to);
+        return true;
     }
 
     public void applyManualSignals(Map<Integer,Integer> signals) {
@@ -153,9 +251,11 @@ public class CircuitPanel extends JPanel {
     public void clearCanvas() {
         gates.clear();
         wires.clear();
+        junctionNodePositions.clear();
         manualSignals.clear();
         lastSimResult.clear();
         selectedGate = null;
+        cancelPendingWire();
         GateVisual.resetNodeCounter();
         GateVisual.resetComponentCounter();
         repaint();
@@ -170,8 +270,10 @@ public class CircuitPanel extends JPanel {
     public void loadCircuit(List<GateVisual> g, List<Wire> w, Map<Integer,Integer> signals) {
         gates.clear(); gates.addAll(g);
         wires.clear(); wires.addAll(w);
+        junctionNodePositions.clear();
         manualSignals.clear();
         if (signals != null) manualSignals.putAll(signals);
+        cancelPendingWire();
         runSimulation();
         repaint();
     }
@@ -191,8 +293,7 @@ public class CircuitPanel extends JPanel {
         lastSimResult = result;
         for (GateVisual g : gates) {
             if (g.getType().equals("LED")) {
-                int inputNode = g.getInputNodeIds().get(0);
-                g.setOn(result.getOrDefault(inputNode, 0) == 1);
+                g.setOn(getLedSignal(g, result) == 1);
             }
         }
     }
@@ -213,6 +314,16 @@ public class CircuitPanel extends JPanel {
 
         for (Wire wire : wires)   drawWire(g2, wire);
         for (GateVisual gate : gates) drawGate(g2, gate);
+
+        if (pendingWireFromNode != null && pendingWireMouse != null) {
+            Point from = findNodePos(pendingWireFromNode);
+            if (from != null) {
+                g2.setColor(new Color(120, 180, 255));
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawLine(from.x, from.y, pendingWireMouse.x, pendingWireMouse.y);
+                g2.fillOval(from.x - 5, from.y - 5, 10, 10);
+            }
+        }
     }
 
     // ── Wire ──────────────────────────────────────────────────────────────────
@@ -415,7 +526,7 @@ public class CircuitPanel extends JPanel {
 
     private void drawLED(Graphics2D g2, int x, int y, int diameter, GateVisual gate, boolean sel) {
         int inputNode = gate.getInputNodeIds().get(0);
-        boolean on = lastSimResult.getOrDefault(inputNode, 0) == 1;
+        boolean on = getLedSignal(gate, lastSimResult) == 1;
         gate.setOn(on);
         Color offFill  = new Color(70, 20, 20);
         Color onFill   = new Color(20, 200, 70);
@@ -460,8 +571,19 @@ public class CircuitPanel extends JPanel {
         g2.drawLine(nx, ny, x, ny);
     }
 
+    // Some older/manual connections may target the LED's output node ID.
+    // Treat either LED-side node as a valid sense point so the lamp still reflects logic HIGH.
+    private int getLedSignal(GateVisual gate, Map<Integer,Integer> signalMap) {
+        int inputNode = gate.getInputNodeIds().get(0);
+        int outputNode = gate.getOutputNodeId();
+        return Math.max(signalMap.getOrDefault(inputNode, 0), signalMap.getOrDefault(outputNode, 0));
+    }
+
     // ── Position helpers ──────────────────────────────────────────────────────
     Point findNodePos(int nodeId) {
+        Point j = junctionNodePositions.get(nodeId);
+        if (j != null) return j;
+
         for (GateVisual gate : gates) {
             int x = gate.getX(), y = gate.getY(), w = gate.getWidth(), h = gate.getHeight();
 
@@ -485,6 +607,42 @@ public class CircuitPanel extends JPanel {
         return null;
     }
 
+    private Integer portAt(Point p) {
+        Integer bestNode = null;
+        double bestDistSq = PORT_HIT_RADIUS * PORT_HIT_RADIUS;
+
+        for (GateVisual gate : gates) {
+            for (Integer inId : gate.getInputNodeIds()) {
+                Point np = findNodePos(inId);
+                if (np == null) continue;
+                double dsq = np.distanceSq(p);
+                if (dsq <= bestDistSq) {
+                    bestDistSq = dsq;
+                    bestNode = inId;
+                }
+            }
+
+            int outId = gate.getOutputNodeId();
+            Point outPos = findNodePos(outId);
+            if (outPos != null) {
+                double dsq = outPos.distanceSq(p);
+                if (dsq <= bestDistSq) {
+                    bestDistSq = dsq;
+                    bestNode = outId;
+                }
+            }
+        }
+
+        for (Map.Entry<Integer, Point> e : junctionNodePositions.entrySet()) {
+            double dsq = e.getValue().distanceSq(p);
+            if (dsq <= bestDistSq) {
+                bestDistSq = dsq;
+                bestNode = e.getKey();
+            }
+        }
+        return bestNode;
+    }
+
     private Wire wireAt(Point p) {
         for (Wire wire : wires) {
             Point p1 = findNodePos(wire.getFromNode());
@@ -496,5 +654,77 @@ public class CircuitPanel extends JPanel {
             if (Line2D.ptSegDist(midX, p2.y, p2.x, p2.y, p.x, p.y) < 6) return wire;
         }
         return null;
+    }
+
+    private Integer createOrReuseJunctionOnWire(Wire wire, Point click) {
+        Point p1 = findNodePos(wire.getFromNode());
+        Point p2 = findNodePos(wire.getToNode());
+        if (p1 == null || p2 == null) return null;
+
+        Point snapped = closestPointOnOrthWire(p1, p2, click);
+        if (snapped == null) return null;
+
+        if (snapped.distance(p1) <= PORT_HIT_RADIUS) return wire.getFromNode();
+        if (snapped.distance(p2) <= PORT_HIT_RADIUS) return wire.getToNode();
+
+        int junctionId = GateVisual.peekNextNode();
+        GateVisual.bumpCounterAbove(junctionId);
+        junctionNodePositions.put(junctionId, snapped);
+
+        wires.remove(wire);
+        wires.add(new Wire(wire.getFromNode(), junctionId));
+        wires.add(new Wire(junctionId, wire.getToNode()));
+        statusPanel.setStatusOk("Junction inserted at node " + junctionId + ".");
+        return junctionId;
+    }
+
+    private Point closestPointOnOrthWire(Point p1, Point p2, Point click) {
+        int midX = (p1.x + p2.x) / 2;
+
+        Point a = new Point(clamp(click.x, Math.min(p1.x, midX), Math.max(p1.x, midX)), p1.y);
+        Point b = new Point(midX, clamp(click.y, Math.min(p1.y, p2.y), Math.max(p1.y, p2.y)));
+        Point c = new Point(clamp(click.x, Math.min(midX, p2.x), Math.max(midX, p2.x)), p2.y);
+
+        double da = a.distanceSq(click);
+        double db = b.distanceSq(click);
+        double dc = c.distanceSq(click);
+
+        if (da <= db && da <= dc) return a;
+        if (db <= da && db <= dc) return b;
+        return c;
+    }
+
+    private int clamp(int v, int lo, int hi) {
+        return Math.max(lo, Math.min(hi, v));
+    }
+
+    private void cancelPendingWire() {
+        pendingWireFromNode = null;
+        pendingWireMouse = null;
+    }
+
+    private void showConnectError(String msg, boolean showDialog) {
+        statusPanel.setStatusError(msg);
+        if (showDialog) {
+            JOptionPane.showMessageDialog(this, msg, "Connect Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private boolean isOutputNode(int nodeId) {
+        for (GateVisual gate : gates) {
+            if (gate.getOutputNodeId() == nodeId) return true;
+        }
+        return false;
+    }
+
+    private boolean isInputNode(int nodeId) {
+        for (GateVisual gate : gates) {
+            if (gate.getInputNodeIds().contains(nodeId)) return true;
+        }
+        return false;
+    }
+
+    private boolean isJunctionNode(int nodeId) {
+        return junctionNodePositions.containsKey(nodeId);
     }
 }
