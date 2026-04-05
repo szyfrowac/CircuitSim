@@ -157,17 +157,21 @@ public class CircuitPanel extends JPanel {
         lastSimResult.clear();
         selectedGate = null;
         GateVisual.resetNodeCounter();
+        GateVisual.resetComponentCounter();
         repaint();
         statusPanel.setStatusOk("Canvas cleared.");
     }
 
     public List<GateVisual> getGates()          { return gates; }
     public List<Wire>       getWires()           { return wires; }
+    public Map<Integer,Integer> getManualSignals() { return new HashMap<>(manualSignals); }
+    public Point getNodePosition(int nodeId) { return findNodePos(nodeId); }
 
-    public void loadCircuit(List<GateVisual> g, List<Wire> w) {
+    public void loadCircuit(List<GateVisual> g, List<Wire> w, Map<Integer,Integer> signals) {
         gates.clear(); gates.addAll(g);
         wires.clear(); wires.addAll(w);
         manualSignals.clear();
+        if (signals != null) manualSignals.putAll(signals);
         runSimulation();
         repaint();
     }

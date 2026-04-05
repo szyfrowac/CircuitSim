@@ -7,14 +7,20 @@ import java.util.List;
 public class GateVisual {
 
     private static int nodeCounter = 1;
+    private static int componentCounter = 1;
 
     public static void resetNodeCounter() { nodeCounter = 1; }
     public static int  peekNextNode()     { return nodeCounter; }
     public static void bumpCounterAbove(int maxId) {
         if (nodeCounter <= maxId) nodeCounter = maxId + 1;
     }
+    public static void resetComponentCounter() { componentCounter = 1; }
+    public static void bumpComponentCounterAbove(int maxId) {
+        if (componentCounter <= maxId) componentCounter = maxId + 1;
+    }
 
     private String type;
+    private int componentId;
     private int x, y;
 
     public static final int WIDTH  = 80;
@@ -29,6 +35,7 @@ public class GateVisual {
     // ── Public constructor (auto-assigns node IDs) ────────────────────────────
     public GateVisual(String type, int x, int y) {
         this.type = type;
+        this.componentId = componentCounter++;
         this.x    = x;
         this.y    = y;
         switch (type) {
@@ -50,6 +57,7 @@ public class GateVisual {
 
     // ── Getters ───────────────────────────────────────────────────────────────
     public String        getType()          { return type; }
+    public int           getComponentId()   { return componentId; }
     public int           getX()             { return x; }
     public int           getY()             { return y; }
     public int           getWidth()         { return WIDTH; }
@@ -59,8 +67,10 @@ public class GateVisual {
     public boolean       isClosed()         { return isClosed; }
     public boolean       isOn()             { return isOn; }
 
+    public void setComponentId(int componentId) { this.componentId = componentId; }
     public void setOn(boolean state)          { isOn = state; }
     public void setPosition(int x, int y)     { this.x = x; this.y = y; }
+    public void setClosed(boolean closed)     { isClosed = closed; }
 
     public Rectangle getBounds() { return new Rectangle(x, y, WIDTH, HEIGHT); }
 
@@ -69,7 +79,7 @@ public class GateVisual {
     // ── Serialization ─────────────────────────────────────────────────────────
     public String serialize() {
         StringBuilder sb = new StringBuilder();
-        sb.append(type).append(",").append(x).append(",").append(y)
+        sb.append(type).append(",").append(componentId).append(",").append(x).append(",").append(y)
           .append(",").append(isClosed);
         for (int id : inputNodeIds) sb.append(",I").append(id);
         sb.append(",O").append(outputNodeId);
@@ -79,11 +89,27 @@ public class GateVisual {
     public static GateVisual deserialize(String line) {
         String[] parts = line.split(",");
         GateVisual gv = new GateVisual();
-        gv.type    = parts[0];
-        gv.x       = Integer.parseInt(parts[1]);
-        gv.y       = Integer.parseInt(parts[2]);
-        gv.isClosed = Boolean.parseBoolean(parts[3]);
-        for (int i = 4; i < parts.length; i++) {
+        gv.type = parts[0];
+
+        // Backward-compatible parser:
+        // Old format: type,x,y,isClosed,...
+        // New format: type,componentId,x,y,isClosed,...
+        int base;
+        if (parts.length > 4 && ("true".equals(parts[4]) || "false".equals(parts[4]))) {
+            gv.componentId = Integer.parseInt(parts[1]);
+            gv.x = Integer.parseInt(parts[2]);
+            gv.y = Integer.parseInt(parts[3]);
+            gv.isClosed = Boolean.parseBoolean(parts[4]);
+            base = 5;
+        } else {
+            gv.componentId = componentCounter++;
+            gv.x = Integer.parseInt(parts[1]);
+            gv.y = Integer.parseInt(parts[2]);
+            gv.isClosed = Boolean.parseBoolean(parts[3]);
+            base = 4;
+        }
+
+        for (int i = base; i < parts.length; i++) {
             String tok = parts[i];
             if (tok.startsWith("I"))      gv.inputNodeIds.add(Integer.parseInt(tok.substring(1)));
             else if (tok.startsWith("O")) gv.outputNodeId = Integer.parseInt(tok.substring(1));

@@ -1,11 +1,10 @@
 package view;
-import model.GateVisual;
-import model.Wire;
+import controller.CircuitXmlIO;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.io.*;
-import java.util.ArrayList;
+import java.io.File;
 import java.util.List;
 
 public class MainFrame extends JFrame {
@@ -46,6 +45,7 @@ public class MainFrame extends JFrame {
 
         setJMenuBar(buildMenuBar());
         setVisible(true);
+        promptOpenAtStartup();
     }
 
     // ── Menu bar ──────────────────────────────────────────────────────────────
@@ -144,19 +144,25 @@ public class MainFrame extends JFrame {
     private void saveCircuitAs() {
         JFileChooser fc = new JFileChooser();
         fc.setDialogTitle("Save Circuit");
+        fc.setFileFilter(new FileNameExtensionFilter("Circuit XML (*.xml)", "xml"));
         if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
         lastFile = fc.getSelectedFile();
-        if (!lastFile.getName().endsWith(".circuit"))
-            lastFile = new File(lastFile.getPath() + ".circuit");
+        if (!lastFile.getName().toLowerCase().endsWith(".xml"))
+            lastFile = new java.io.File(lastFile.getPath() + ".xml");
         doSave(lastFile);
     }
 
-    private void doSave(File f) {
-        try (PrintWriter pw = new PrintWriter(new FileWriter(f))) {
-            for (GateVisual g : circuitPanel.getGates()) pw.println("GATE:" + g.serialize());
-            for (Wire w       : circuitPanel.getWires())  pw.println("WIRE:" + w.getFromNode() + "," + w.getToNode());
+    private void doSave(java.io.File f) {
+        try {
+            CircuitXmlIO.save(
+                    f,
+                    circuitPanel.getGates(),
+                    circuitPanel.getWires(),
+                    circuitPanel.getManualSignals(),
+                    circuitPanel::getNodePosition
+            );
             statusPanel.setStatusOk("Saved → " + f.getName());
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Save failed:\n" + ex.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -165,34 +171,40 @@ public class MainFrame extends JFrame {
     private void openCircuit() {
         JFileChooser fc = new JFileChooser();
         fc.setDialogTitle("Open Circuit");
+        fc.setFileFilter(new FileNameExtensionFilter("Circuit XML (*.xml)", "xml"));
         if (fc.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
-        File f = fc.getSelectedFile();
-        List<GateVisual> gates = new ArrayList<>();
-        List<Wire>       wires = new ArrayList<>();
-        int maxId = 0;
-        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                line = line.trim();
-                if (line.startsWith("GATE:")) {
-                    GateVisual gv = GateVisual.deserialize(line.substring(5));
-                    gates.add(gv);
-                    for (int id : gv.getInputNodeIds()) maxId = Math.max(maxId, id);
-                    maxId = Math.max(maxId, gv.getOutputNodeId());
-                } else if (line.startsWith("WIRE:")) {
-                    String[] p = line.substring(5).split(",");
-                    wires.add(new Wire(Integer.parseInt(p[0].trim()), Integer.parseInt(p[1].trim())));
-                }
-            }
-        } catch (IOException | NumberFormatException ex) {
+        openCircuit(fc.getSelectedFile());
+    }
+
+    private void openCircuit(java.io.File f) {
+        CircuitXmlIO.CircuitData data;
+        try {
+            data = CircuitXmlIO.load(f);
+        } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Open failed:\n" + ex.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        GateVisual.bumpCounterAbove(maxId);
-        circuitPanel.loadCircuit(gates, wires);
+
+        circuitPanel.loadCircuit(data.getGates(), data.getWires(), data.getManualSignals());
         lastFile = f;
         statusPanel.setStatusOk("Loaded ← " + f.getName());
+    }
+
+    private void promptOpenAtStartup() {
+        String[] options = {"Open Saved Circuit", "Start New Circuit"};
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                "Would you like to open a saved circuit file now?",
+                "Start Options",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]
+        );
+
+        if (choice == 0) openCircuit();
     }
 
     // ── Help ─────────────────────────────────────────────────────────────────
@@ -216,7 +228,7 @@ public class MainFrame extends JFrame {
             "  Select a gate (left-click) → Delete key, or 'Delete Gate' button.\n" +
             "  Right-click a wire to remove it.\n\n" +
             "SAVE / LOAD\n" +
-            "  File → Save / Open   (saves as .circuit text file)\n\n" +
+            "  File → Save / Open   (saves as .xml files)\n\n" +
             "TRUTH TABLE\n" +
             "  Tools → Truth Table Generator\n" +
             "  Automatically iterates all switch combinations.\n\n" +

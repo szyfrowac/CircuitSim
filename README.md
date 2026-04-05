@@ -44,9 +44,10 @@ chmod +x build_and_run.sh
 5. **Delete gate**: Select it (left-click) → press Delete, or use toolbar button.
 6. **Delete wire**: Right-click on a wire.
 7. **Manual signal**: Enter node + value (0/1) in "Input Signals" → Apply All.
-8. **Save/Load**: File → Save / Open (.circuit files).
-9. **Truth Table**: Tools → Truth Table Generator.
-10. **Verify**: Tools → Verification (detects short circuits).
+8. **Save/Load**: File → Save / Open (.xml files).
+9. **Startup Open Option**: On launch, choose to open an existing saved circuit.
+10. **Truth Table**: Tools → Truth Table Generator.
+11. **Verify**: Tools → Verification (detects short circuits).
 
 ### Node Wiring Rules
 - Output nodes are on the **right** side of each gate.
@@ -64,7 +65,7 @@ chmod +x build_and_run.sh
 ## Project Structure
 
 ```
-src/
+srcfix/
 ├── Main.java                    Entry point
 ├── model/
 │   ├── GateVisual.java          Gate data model + serialization

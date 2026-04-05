@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<circuit version="1">
+  <components>
+    <component height="60" id="1" ledOn="false" switchClosed="false" type="AND" width="80" x="519" y="230">
+      <nodes>
+        <node id="1" role="input" x="499" y="250"/>
+        <node id="2" role="input" x="499" y="270"/>
+        <node id="3" role="output" x="619" y="260"/>
+      </nodes>
+    </component>
+    <component height="60" id="2" ledOn="false" switchClosed="true" type="SWITCH" width="80" x="301" y="186">
+      <nodes>
+        <node id="4" role="output" x="401" y="216"/>
+      </nodes>
+    </component>
+    <component height="60" id="3" ledOn="false" switchClosed="true" type="SWITCH" width="80" x="306" y="292">
+      <nodes>
+        <node id="5" role="output" x="406" y="322"/>
+      </nodes>
+    </component>
+    <component height="60" id="4" ledOn="false" switchClosed="false" type="LED" width="80" x="741" y="234">
+      <nodes>
+        <node id="6" role="input" x="721" y="264"/>
+        <node id="7" role="output" x="841" y="264"/>
+      </nodes>
+    </component>
+  </components>
+  <wires>
+    <wire endX="406" endY="322" fromNode="2" startX="499" startY="270" toNode="5"/>
+    <wire endX="499" endY="250" fromNode="4" startX="401" startY="216" toNode="1"/>
+    <wire endX="721" endY="264" fromNode="3" startX="619" startY="260" toNode="6"/>
+  </wires>
+  <manualSignals/>
+</circuit>

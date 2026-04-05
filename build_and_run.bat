@@ -7,7 +7,7 @@ REM Create output directory
 if not exist out mkdir out
 
 echo Compiling...
-javac -d out -sourcepath src src\Main.java src\model\Wire.java src\model\GateVisual.java src\controller\CircuitEngine.java src\view\StatusPanel.java src\view\TruthTableDialog.java src\view\ToolPanel.java src\view\CircuitPanel.java src\view\MainFrame.java
+javac -d out -sourcepath srcfix srcfix\Main.java srcfix\model\Wire.java srcfix\model\GateVisual.java srcfix\controller\CircuitEngine.java srcfix\view\StatusPanel.java srcfix\view\TruthTableDialog.java srcfix\view\ToolPanel.java srcfix\view\CircuitPanel.java srcfix\view\MainFrame.java
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
